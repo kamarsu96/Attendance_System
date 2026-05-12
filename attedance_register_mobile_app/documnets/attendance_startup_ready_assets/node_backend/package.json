@@ -1,0 +1,14 @@
+
+{
+ "name":"attendance-backend",
+ "version":"1.0.0",
+ "main":"server.js",
+ "dependencies":{
+   "express":"^4.18.2",
+   "jsonwebtoken":"^9.0.0",
+   "bcrypt":"^5.1.0",
+   "sequelize":"^6.37.0",
+   "mysql2":"^3.6.0",
+   "cors":"^2.8.5"
+ }
+}

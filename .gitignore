@@ -1,0 +1,46 @@
+# General
+.DS_Store
+.vscode/
+.idea/
+*.log
+*.sqlite
+.env
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+
+# Mac
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Angular / Web
+dist/
+tmp/
+out-tsc/
+bazel-out/
+
+# Flutter / Mobile
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+*.jks
+*.keystore
+*.pfx
+
+# Misc
+coverage/
+.nx/
