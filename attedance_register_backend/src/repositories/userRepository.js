@@ -7,7 +7,7 @@ class UserRepository extends BaseRepository {
     }
 
     async getById(id) {
-        const sql = 'SELECT u.id, u.employee_id, u.username, u.role_id, r.role_name FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.id = ?';
+        const sql = 'SELECT u.id, u.employee_id, u.username, u.password_hash, u.role_id, r.role_name FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.id = ?';
         const rows = await this.query(sql, [id]);
         return rows[0];
     }
@@ -76,11 +76,13 @@ class UserRepository extends BaseRepository {
         const sql = `
             SELECT u.id as user_id, u.username, u.employee_id, r.role_name,
                    e.first_name, e.last_name, e.email, e.phone, e.joining_date, e.qualification, e.employment_type,
+                   e.branch_id, e.contractor_id, e.reporting_manager_id, e.work_location,
                    ep.dob, ep.gender, ep.marital_status, ep.blood_group, ep.profile_picture_url, 
                    ep.current_address, ep.permanent_address, ep.nationality, ep.city, ep.state, ep.zip_code, ep.country,
                    ep.emergency_contact_name, ep.emergency_contact_relation, ep.emergency_contact_phone, ep.emergency_contact_email,
+                   ep.secondary_contact_name, ep.secondary_contact_relation, ep.secondary_contact_phone, ep.secondary_contact_email,
                    ebd.bank_name, ebd.account_number, ebd.routing_number, ebd.pan_number, ebd.payment_method, ebd.tax_status,
-                   d.department_name, ds.designation_name
+                   d.department_name, ds.designation_name, b.branch_name, c.agency_name as contractor_name
             FROM users u
             LEFT JOIN roles r ON u.role_id = r.id
             LEFT JOIN employees e ON u.employee_id = e.id
@@ -88,6 +90,8 @@ class UserRepository extends BaseRepository {
             LEFT JOIN employee_bank_details ebd ON e.id = ebd.employee_id
             LEFT JOIN departments d ON e.department_id = d.id
             LEFT JOIN designations ds ON e.designation_id = ds.id
+            LEFT JOIN branches b ON e.branch_id = b.id
+            LEFT JOIN contractors c ON e.contractor_id = c.id
             WHERE u.id = ?
         `;
         const results = await this.query(sql, [userId]);
@@ -95,7 +99,7 @@ class UserRepository extends BaseRepository {
     }
 
     async updatePassword(userId, passwordHash) {
-        const sql = 'UPDATE users SET password_hash = ? WHERE id = ?';
+        const sql = 'UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?';
         return await this.execute(sql, [passwordHash, userId]);
     }
 

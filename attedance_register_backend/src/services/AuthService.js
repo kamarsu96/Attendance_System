@@ -26,7 +26,18 @@ class AuthService {
             { expiresIn: process.env.JWT_EXPIRE }
         );
 
-        return { token, user: { id: user.id, username: user.username, role: user.role_name, role_id: user.role_id, company_id: user.company_id, employee_id: user.employee_id } };
+        return { 
+            token, 
+            user: { 
+                id: user.id, 
+                username: user.username, 
+                role: user.role_name, 
+                role_id: user.role_id, 
+                company_id: user.company_id, 
+                employee_id: user.employee_id,
+                must_change_password: !!user.must_change_password
+            } 
+        };
     }
 }
 

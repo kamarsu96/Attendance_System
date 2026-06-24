@@ -1,5 +1,7 @@
 const employeeRepository = require('../repositories/EmployeeRepository');
+const userRepository = require('../repositories/UserRepository');
 const { uploadToCloudinary } = require('./CloudinaryService');
+const bcrypt = require('bcryptjs');
 
 class EmployeeService {
     async registerEmployee(employeeData, files) {
@@ -19,16 +21,33 @@ class EmployeeService {
 
         const employeeId = await employeeRepository.create(employeeData);
 
-        // 2. Handle Documents (Optional - if we want to store multiple documents)
+        // 2. Handle Documents
         if (files.documents && files.documents.length > 0) {
             for (const doc of files.documents) {
                 const result = await uploadToCloudinary(doc.buffer, 'documents');
-                // Store in employee_documents table
                 await employeeRepository.addDocument(employeeId, {
-                    document_type: doc.originalname.split('.')[0],
+                    document_type: doc.originalname.split('.')[0].substring(0, 50),
                     file_path: result.secure_url
                 });
             }
+        }
+
+        // 3. Automatically Create User Account
+        if (employeeData.email) {
+            const firstName = (employeeData.first_name || 'user').toLowerCase();
+            const phone = employeeData.phone || '0000';
+            const last4Phone = phone.slice(-4).padStart(4, '0');
+            const defaultPassword = `${firstName}${last4Phone}`;
+            
+            console.log(`Creating user account for ${employeeData.email} with default password: ${defaultPassword}`);
+            
+            const password_hash = await bcrypt.hash(defaultPassword, 10);
+            await userRepository.create({
+                employee_id: employeeId,
+                username: employeeData.email,
+                password_hash,
+                role_id: 5 // Default 'employee' role ID from roles table
+            });
         }
 
         return employeeId;
@@ -66,7 +85,7 @@ class EmployeeService {
             for (const doc of files.documents) {
                 const result = await uploadToCloudinary(doc.buffer, 'documents');
                 await employeeRepository.addDocument(id, {
-                    document_type: doc.originalname.split('.')[0],
+                    document_type: doc.originalname.split('.')[0].substring(0, 50),
                     file_path: result.secure_url
                 });
             }

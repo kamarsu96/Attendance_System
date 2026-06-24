@@ -55,10 +55,17 @@ class AuthController {
         try {
             const userRepository = require('../repositories/UserRepository');
             const bcrypt = require('bcryptjs');
-            const { new_password } = req.body;
-            if (!new_password) {
-                return res.status(400).json({ success: false, message: 'New password is required' });
+            const { current_password, new_password } = req.body;
+            if (!current_password || !new_password) {
+                return res.status(400).json({ success: false, message: 'Current and new password are required' });
             }
+
+            const user = await userRepository.getById(req.user.id);
+            const isMatch = await bcrypt.compare(current_password, user.password_hash);
+            if (!isMatch) {
+                return res.status(401).json({ success: false, message: 'Incorrect current password' });
+            }
+
             const password_hash = await bcrypt.hash(new_password, 10);
             await userRepository.updatePassword(req.user.id, password_hash);
             res.status(200).json({ success: true, message: 'Password updated successfully' });

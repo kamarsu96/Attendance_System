@@ -34,7 +34,8 @@ class EmployeeController {
                         dept: emp.department_name || 'Unassigned',
                         role: emp.designation_name || 'Associate',
                         status: emp.status ? (emp.status.charAt(0).toUpperCase() + emp.status.slice(1)) : 'Active',
-                        initials: `${(emp.first_name || 'E').charAt(0)}${(emp.last_name || 'E').charAt(0)}`.toUpperCase()
+                        initials: `${(emp.first_name || 'E').charAt(0)}${(emp.last_name || 'E').charAt(0)}`.toUpperCase(),
+                        profile_picture_url: emp.profile_picture_url || null
                     };
                 } catch (e) {
                     console.error('Error mapping employee:', emp.id, e);

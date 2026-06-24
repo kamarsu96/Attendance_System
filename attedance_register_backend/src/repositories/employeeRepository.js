@@ -147,7 +147,6 @@ class EmployeeRepository extends BaseRepository {
     async update(id, data) {
         console.log('--- REPOSITORY UPDATE START ---');
         console.log('ID:', id);
-        console.log('Raw Data Keys:', Object.keys(data));
         
         const conn = await db.getConnection();
         try {
@@ -165,7 +164,6 @@ class EmployeeRepository extends BaseRepository {
 
             Object.keys(data).forEach(key => {
                 if (allowedEmpFields.includes(key)) {
-                    // Ensure empty strings are treated as null for IDs
                     let value = data[key];
                     if (value === '' && key.includes('_id')) value = null;
                     empFields.push(`${key} = ?`);
@@ -175,76 +173,73 @@ class EmployeeRepository extends BaseRepository {
 
             if (empFields.length > 0) {
                 empParams.push(id);
-                console.log('Updating employees table with fields:', empFields.join(', '));
                 await conn.execute(`UPDATE employees SET ${empFields.join(', ')} WHERE id = ?`, empParams);
             }
 
-            // 2. Update Profiles Table (Separate INSERT/UPDATE for maximum reliability)
-            const [existingProfile] = await conn.execute('SELECT id FROM employee_profiles WHERE employee_id = ?', [id]);
-            
-            const profileData = [
-                data.dob || null, data.gender || null, data.marital_status || null, 
-                data.blood_group || null, data.nationality || null, data.city || null, 
-                data.state || null, data.zip_code || null, data.country || null,
-                data.address || null, data.profile_picture_url || null,
-                data.emergency_contact_name || null, data.emergency_contact_relation || null, 
-                data.emergency_contact_phone || null, data.emergency_contact_email || null,
-                data.secondary_contact_name || null, data.secondary_contact_relation || null, 
-                data.secondary_contact_phone || null, data.secondary_contact_email || null
-            ];
+            // 2. Update Profiles Table (DYNAMIC UPDATE)
+            const profileFields = [];
+            const profileParams = [];
+            const allowedProfileFields = {
+                'dob': 'dob', 'gender': 'gender', 'marital_status': 'marital_status', 
+                'blood_group': 'blood_group', 'nationality': 'nationality', 'city': 'city', 
+                'state': 'state', 'zip_code': 'zip_code', 'country': 'country',
+                'address': 'current_address', 'profile_picture_url': 'profile_picture_url',
+                'emergency_contact_name': 'emergency_contact_name', 
+                'emergency_contact_relation': 'emergency_contact_relation', 
+                'emergency_contact_phone': 'emergency_contact_phone', 
+                'emergency_contact_email': 'emergency_contact_email',
+                'secondary_contact_name': 'secondary_contact_name', 
+                'secondary_contact_relation': 'secondary_contact_relation', 
+                'secondary_contact_phone': 'secondary_contact_phone', 
+                'secondary_contact_email': 'secondary_contact_email'
+            };
 
-            if (existingProfile.length > 0) {
-                console.log('Updating existing profile for employee_id:', id);
-                const updateProfileSql = `
-                    UPDATE employee_profiles SET 
-                        dob = ?, gender = ?, marital_status = ?, blood_group = ?, nationality = ?,
-                        city = ?, state = ?, zip_code = ?, country = ?, current_address = ?,
-                        profile_picture_url = ?, emergency_contact_name = ?, emergency_contact_relation = ?,
-                        emergency_contact_phone = ?, emergency_contact_email = ?,
-                        secondary_contact_name = ?, secondary_contact_relation = ?,
-                        secondary_contact_phone = ?, secondary_contact_email = ?
-                    WHERE employee_id = ?
-                `;
-                await conn.execute(updateProfileSql, [...profileData, id]);
-            } else {
-                console.log('Inserting new profile for employee_id:', id);
-                const insertProfileSql = `
-                    INSERT INTO employee_profiles (
-                        dob, gender, marital_status, blood_group, nationality,
-                        city, state, zip_code, country, current_address,
-                        profile_picture_url, emergency_contact_name, emergency_contact_relation,
-                        emergency_contact_phone, emergency_contact_email,
-                        secondary_contact_name, secondary_contact_relation,
-                        secondary_contact_phone, secondary_contact_email, employee_id
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                `;
-                await conn.execute(insertProfileSql, [...profileData, id]);
+            Object.keys(data).forEach(key => {
+                if (allowedProfileFields[key]) {
+                    profileFields.push(`${allowedProfileFields[key]} = ?`);
+                    profileParams.push(data[key]);
+                }
+            });
+
+            if (profileFields.length > 0) {
+                const [existingProfile] = await conn.execute('SELECT id FROM employee_profiles WHERE employee_id = ?', [id]);
+                if (existingProfile.length > 0) {
+                    profileParams.push(id);
+                    await conn.execute(`UPDATE employee_profiles SET ${profileFields.join(', ')} WHERE employee_id = ?`, profileParams);
+                } else {
+                    // If no profile, we still need employee_id for INSERT
+                    const insertCols = [...Object.keys(data).filter(k => allowedProfileFields[k]).map(k => allowedProfileFields[k]), 'employee_id'];
+                    const insertVals = [...Object.keys(data).filter(k => allowedProfileFields[k]).map(k => data[k]), id];
+                    const placeholders = insertVals.map(() => '?').join(', ');
+                    await conn.execute(`INSERT INTO employee_profiles (${insertCols.join(', ')}) VALUES (${placeholders})`, insertVals);
+                }
             }
 
-            // 3. Update Bank Details Table
-            const [existingBank] = await conn.execute('SELECT id FROM employee_bank_details WHERE employee_id = ?', [id]);
-            const bankData = [
-                data.bank_name || null, data.account_number || null, 
-                data.routing_number || null, data.pan_number || null, 
-                data.payment_method || 'Direct Deposit', data.tax_status || 'Single'
+            // 3. Update Bank Details Table (DYNAMIC UPDATE)
+            const bankFields = [];
+            const bankParams = [];
+            const allowedBankFields = [
+                'bank_name', 'account_number', 'routing_number', 'pan_number', 'payment_method', 'tax_status'
             ];
 
-            if (existingBank.length > 0) {
-                await conn.execute(
-                    `UPDATE employee_bank_details SET 
-                        bank_name = ?, account_number = ?, routing_number = ?, 
-                        pan_number = ?, payment_method = ?, tax_status = ? 
-                    WHERE employee_id = ?`,
-                    [...bankData, id]
-                );
-            } else {
-                await conn.execute(
-                    `INSERT INTO employee_bank_details (
-                        bank_name, account_number, routing_number, 
-                        pan_number, payment_method, tax_status, employee_id
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                    [...bankData, id]
-                );
+            Object.keys(data).forEach(key => {
+                if (allowedBankFields.includes(key)) {
+                    bankFields.push(`${key} = ?`);
+                    bankParams.push(data[key]);
+                }
+            });
+
+            if (bankFields.length > 0) {
+                const [existingBank] = await conn.execute('SELECT id FROM employee_bank_details WHERE employee_id = ?', [id]);
+                if (existingBank.length > 0) {
+                    bankParams.push(id);
+                    await conn.execute(`UPDATE employee_bank_details SET ${bankFields.join(', ')} WHERE employee_id = ?`, bankParams);
+                } else {
+                    const insertCols = [...Object.keys(data).filter(k => allowedBankFields.includes(k)), 'employee_id'];
+                    const insertVals = [...Object.keys(data).filter(k => allowedBankFields.includes(k)).map(k => data[k]), id];
+                    const placeholders = insertVals.map(() => '?').join(', ');
+                    await conn.execute(`INSERT INTO employee_bank_details (${insertCols.join(', ')}) VALUES (${placeholders})`, insertVals);
+                }
             }
 
             await conn.commit();
